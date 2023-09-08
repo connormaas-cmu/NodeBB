@@ -1,14 +1,14 @@
 'use strict';
 
-const nconf = require('nconf');
-const validator = require('validator');
+import nconf = require('nconf');
+import validator = require('validator');
 
-const plugins = require('../plugins');
-const meta = require('../meta');
-const translator = require('../translator');
-const widgets = require('../widgets');
-const utils = require('../utils');
-const helpers = require('./helpers');
+import plugins = require('../plugins');
+import meta = require('../meta');
+import translator = require('../translator');
+import widgets = require('../widgets');
+import utils = require('../utils');
+import helpers = require('./helpers');
 
 const relative_path = nconf.get('relative_path');
 
