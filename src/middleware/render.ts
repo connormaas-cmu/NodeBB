@@ -1,6 +1,7 @@
 import nconf from 'nconf';
 import validator from 'validator';
 import { Request, Response, NextFunction } from 'express';
+
 import * as plugins from '../plugins';
 import * as meta from '../meta';
 import * as translator from '../translator';
@@ -8,9 +9,14 @@ import * as widgets from '../widgets';
 import * as utils from '../utils';
 import * as helpers from '../helpers';
 
-const relative_path : string = nconf.get('relative_path');
+const relative_path : string = nconf.get('relative_path') as string;
 
-type Object = {
+type MiddleWare = {
+    processRender : (req : Request, res : Response, next : NextFunction) => void
+    admin? : {[key: string] : (req: Request, res: Response, options: Options) => Promise<string>};
+}
+
+type Options = {
     loggedIn? : boolean;
     relative_path? : string;
     template? : {[x: string]: string | boolean; name: string};
@@ -22,15 +28,17 @@ type Object = {
     title? : string;
 };
 
-const processRender = (middleware) => {
-    middleware.processRender = function processRender(req : Request, res : Response, next : NextFunction) {
+type Render = (tpl: string, options: Options, callback: (err: Error, str: string) => void) => void
+
+const processRender = (middleware : MiddleWare) => {
+    const porcessRender = function (req : Request, res : Response, next : NextFunction) : void {
         // res.render post-processing, modified from here: https://gist.github.com/mrlannigan/5051687
         const { render } = res;
 
         res.render = async function renderOverride(template : string, options? : object, fn? : (err: Error, html: string) => void) : Promise<void> {
             const self = this;
             const { req } = this;
-            async function renderMethod(template : string, options? : Object, fn? : (err: Error, html: string) => void) {
+            const renderMethod = async function (template : string, options? : Options, fn? : (err: Error, html: string) => void) {
                 options = options || {};
                 if (typeof options === 'function') {
                     fn = options as (err: Error, html: string) => void;
@@ -111,28 +119,12 @@ const processRender = (middleware) => {
         next();
     };
 
-    async function renderContent(render, tpl, req, res, options) {
-        return new Promise((resolve, reject) => {
-            render.call(res, tpl, options, async (err, str) => {
-                if (err) reject(err);
-                else resolve(await translate(str, getLang(req, res)));
-            });
-        });
+    const translate = async function (str : string, language : string) : Promise<string> {
+        const translated = await translator.translate(str, language);
+        return translator.unescape(translated);
     }
 
-    async function renderHeaderFooter(method : string, req : Request, res : Response, options) {
-        let str = '';
-        if (res.locals.renderHeader) {
-            str = await middleware[method](req, res, options);
-        } else if (res.locals.renderAdminHeader) {
-            str = await middleware.admin[method](req, res, options);
-        } else {
-            str = '';
-        }
-        return await translate(str, getLang(req, res));
-    }
-
-    function getLang(req : Request, res : Response) : string {
+    const getLang = function (req : Request, res : Response) : string {
         let language = (res.locals.config && res.locals.config.userLang) || 'en-GB';
         if (res.locals.renderAdminHeader) {
             language = (res.locals.config && res.locals.config.acpLang) || 'en-GB';
@@ -142,9 +134,25 @@ const processRender = (middleware) => {
         return req.query.lang ? (validator as any).escape(String(req.query.lang)) : language;
     }
 
-    async function translate(str : string, language : string) : Promise<string> {
-        const translated = await translator.translate(str, language);
-        return translator.unescape(translated);
+    const renderContent = async function renderContent(render : Render, tpl : string, req : Request, res : Response, options : Options) {
+        return new Promise((resolve, reject) => {
+            render.call(res, tpl, options, async (err : Error, str : string) => {
+                if (err) reject(err);
+                else resolve(await translate(str, getLang(req, res)));
+            });
+        });
+    }
+
+    const renderHeaderFooter = async function (method : string, req : Request, res : Response, options : Options) : Promise<string> {
+        let str = '';
+        if (res.locals.renderHeader) {
+            str  = await middleware[method](req, res, options);
+        } else if (res.locals.renderAdminHeader) {
+            str = await middleware.admin[method](req, res, options);
+        } else {
+            str = '';
+        }
+        return await translate(str, getLang(req, res));
     }
 };
 
