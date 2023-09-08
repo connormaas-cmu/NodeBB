@@ -2,13 +2,16 @@
 
 import nconf = require('nconf');
 import validator = require('validator');
+// declare module 'validator' {
+//     export function escape(input: string): string;
+// }
 
 import plugins = require('../plugins');
 import meta = require('../meta');
 import translator = require('../translator');
 import widgets = require('../widgets');
 import utils = require('../utils');
-import helpers = require('./helpers');
+import helpers = require('../helpers');
 
 const relative_path = nconf.get('relative_path');
 
@@ -110,7 +113,7 @@ module.exports = function (middleware) {
         });
     }
 
-    async function renderHeaderFooter(method, req, res, options) {
+    async function renderHeaderFooter(method : string, req : Request, res : Response, options) {
         let str = '';
         if (res.locals.renderHeader) {
             str = await middleware[method](req, res, options);
@@ -122,7 +125,7 @@ module.exports = function (middleware) {
         return await translate(str, getLang(req, res));
     }
 
-    function getLang(req, res) {
+    function getLang(req : Request, res : Response) : string {
         let language = (res.locals.config && res.locals.config.userLang) || 'en-GB';
         if (res.locals.renderAdminHeader) {
             language = (res.locals.config && res.locals.config.acpLang) || 'en-GB';
@@ -130,7 +133,7 @@ module.exports = function (middleware) {
         return req.query.lang ? validator.escape(String(req.query.lang)) : language;
     }
 
-    async function translate(str, language) {
+    async function translate(str : string, language : string) : Promise<string> {
         const translated = await translator.translate(str, language);
         return translator.unescape(translated);
     }
