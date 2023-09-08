@@ -1,32 +1,39 @@
-'use strict';
+import nconf from 'nconf';
+import validator from 'validator';
+import { Request, Response, NextFunction } from 'express';
+import * as plugins from '../plugins';
+import * as meta from '../meta';
+import * as translator from '../translator';
+import * as widgets from '../widgets';
+import * as utils from '../utils';
+import * as helpers from '../helpers';
 
-import nconf = require('nconf');
-import validator = require('validator');
-// declare module 'validator' {
-//     export function escape(input: string): string;
-// }
+const relative_path : string = nconf.get('relative_path');
 
-import plugins = require('../plugins');
-import meta = require('../meta');
-import translator = require('../translator');
-import widgets = require('../widgets');
-import utils = require('../utils');
-import helpers = require('../helpers');
+type Object = {
+    loggedIn? : boolean;
+    relative_path? : string;
+    template? : {[x: string]: string | boolean; name: string};
+    url? : string;
+    bodyClass? : string;
+    _header? : { tags: any; };
+    widgets? : any;
+    _locals? : any;
+    title? : string;
+};
 
-const relative_path = nconf.get('relative_path');
-
-module.exports = function (middleware) {
-    middleware.processRender = function processRender(req, res, next) {
+const processRender = (middleware) => {
+    middleware.processRender = function processRender(req : Request, res : Response, next : NextFunction) {
         // res.render post-processing, modified from here: https://gist.github.com/mrlannigan/5051687
         const { render } = res;
 
-        res.render = async function renderOverride(template, options, fn) {
+        res.render = async function renderOverride(template : string, options? : object, fn? : (err: Error, html: string) => void) : Promise<void> {
             const self = this;
             const { req } = this;
-            async function renderMethod(template, options, fn) {
+            async function renderMethod(template : string, options? : Object, fn? : (err: Error, html: string) => void) {
                 options = options || {};
                 if (typeof options === 'function') {
-                    fn = options;
+                    fn = options as (err: Error, html: string) => void;
                     options = {};
                 }
 
@@ -130,7 +137,9 @@ module.exports = function (middleware) {
         if (res.locals.renderAdminHeader) {
             language = (res.locals.config && res.locals.config.acpLang) || 'en-GB';
         }
-        return req.query.lang ? validator.escape(String(req.query.lang)) : language;
+        // The next line calls a function in a module that has not been updated to TS yet
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        return req.query.lang ? (validator as any).escape(String(req.query.lang)) : language;
     }
 
     async function translate(str : string, language : string) : Promise<string> {
@@ -138,3 +147,5 @@ module.exports = function (middleware) {
         return translator.unescape(translated);
     }
 };
+
+export default processRender;
