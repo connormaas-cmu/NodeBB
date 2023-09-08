@@ -35,10 +35,12 @@ const processRender = (middleware : MiddleWare) => {
         // res.render post-processing, modified from here: https://gist.github.com/mrlannigan/5051687
         const { render } = res;
 
-        res.render = async function renderOverride(template : string, options? : object, fn? : (err: Error, html: string) => void) : Promise<void> {
+        res.render = async function renderOverride(template : string, options? :
+            object, fn? : (err: Error, html: string) => void) : Promise<any> {
             const self = this;
             const { req } = this;
-            const renderMethod = async function (template : string, options? : Options, fn? : (err: Error, html: string) => void) {
+            const renderMethod = async function (template : string, options? :
+                Options, fn? : (err: Error, html: string) => void) {
                 options = options || {};
                 if (typeof options === 'function') {
                     fn = options as (err: Error, html: string) => void;
@@ -55,13 +57,15 @@ const processRender = (middleware : MiddleWare) => {
                     res.set('cache-control', 'private');
                 }
 
-                const buildResult = await plugins.hooks.fire(`filter:${template}.build`, { req: req, res: res, templateData: options });
+                const buildResult = await plugins.hooks.fire(`filter:${template}.build`,
+                { req: req, res: res, templateData: options });
                 if (res.headersSent) {
                     return;
                 }
                 const templateToRender = buildResult.templateData.templateToRender || template;
 
-                const renderResult = await plugins.hooks.fire('filter:middleware.render', { req: req, res: res, templateData: buildResult.templateData });
+                const renderResult = await plugins.hooks.fire('filter:middleware.render', 
+                { req: req, res: res, templateData: buildResult.templateData });
                 if (res.headersSent) {
                     return;
                 }
